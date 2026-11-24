@@ -1,6 +1,9 @@
 import json
+import os
 import random
 import re
+import threading
+import time
 from urllib.parse import quote
 
 import requests
@@ -403,6 +406,11 @@ def webhook():
     return jsonify(handle(req))
 
 
+@app.route("/", methods=["GET"])
+def index_page():
+    return "Ультиматум жив", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
 def handle(req):
     rreq = req.get("request") or {}
     rtype = rreq.get("type", "")
@@ -452,3 +460,24 @@ def handle(req):
         return do_play(utt, tokens, state, user_state)
 
     return not_understood(state)
+
+
+# ---------------- самопинг против засыпания Render ----------------
+
+def keep_alive():
+    url = os.environ.get("RENDER_EXTERNAL_URL")
+    if not url:
+        return
+    while True:
+        try:
+            requests.get(url, timeout=10)
+        except Exception:
+            pass
+        time.sleep(240)
+
+
+threading.Thread(target=keep_alive, daemon=True).start()
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
